@@ -12,3 +12,5 @@
 traced_model.pt
 yolov3*.pth
 /tfds/*
+/__pycache__/*
+/processedImages/*
