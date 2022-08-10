@@ -1,0 +1,14 @@
+.idea/*
+.ipynb_checkpoints/*
+/assets/*
+/hymenoptera_data/*
+/mmdetection/*
+/MVOR/*
+/PennFudanPed/*
+/SLP_Dataset_and_Code/*
+/SRN/*
+/vision/*
+/yolov7/*
+traced_model.pt
+yolov3*.pth
+/tfds/*
