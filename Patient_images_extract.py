@@ -177,6 +177,83 @@ def create_annotation_files(json_file, dest=None):
 
     print('Completed successfully!')
 
+def create_annotation_files_updated(json_file, dest=None):
+    """
+    this function convert coco anootations to yolo format
+    :param json_file: Json file that contains annotations is coco format
+    :param dest: folder where the Images and annotaions are seperated for both classes
+    :return: None
+    """
+    root = 'J:/ATOS/camma_mvor_dataset/'
+    dest = 'J:/ATOS/datasetv3.0/'
+
+    # Creating Directories
+    os.mkdir(dest+'images')
+    os.mkdir(dest+'labels')
+
+    # os.mkdir(dest + 'clinician/Images')
+    # os.mkdir(dest + 'patient/Images')
+
+    # os.mkdir(dest + 'clinician/Annotations')
+    # os.mkdir(dest + 'patient/Annotations')
+
+    with open(json_file) as file:
+        annotations = json.load(file)
+
+    imid_path = {}
+    for idx in annotations['images']:
+        imid_path[idx['id']] = idx['file_name']
+
+    patients = []
+    image_ids_list_p = set()
+    image_ids_list_c = set()
+    for p in tqdm(annotations['annotations']):
+        if p['person_role'] == 'patient':
+            image_path = imid_path[p['image_id']]
+            class_id = 1
+            bbox = p['bbox']
+            x = bbox[0] * (1./480)
+            w = bbox[1] * (1./480)
+            y = bbox[2] * (1./640)
+            h = bbox[3] * (1./640)
+            text = str(class_id) + ' ' + str(x) + ' ' + str(y) + ' ' + str(w) + ' ' + str(h)
+            image_name = "-".join(image_path.split('/'))
+            if p['image_id'] not in image_ids_list_p:
+                image_ids_list_p.add(p['image_id'])
+                shutil.copyfile(root+image_path, dest+'images/'+image_name)
+                with open('J:/ATOS/datasetv3.0/labels/'+str(image_name.split('.')[0])+'.txt', 'w') as file:
+                    file.write(text)
+
+            elif p['image_id'] in image_ids_list_p:
+                # shutil.copyfile(root + image_path, dest + 'patient/Images/' + image_name)
+                with open('J:/ATOS/datasetv3.0/labels/' + str(image_name.split('.')[0]) + '.txt', 'a') as file:
+                    file.write('\n')
+                    file.write(text)
+        elif p['person_role'] == 'clinician':
+            image_path = imid_path[p['image_id']]
+            class_id = 0
+            bbox = p['bbox']
+            x = bbox[0] * (1. / 640)
+            w = bbox[1] * (1. / 640)
+            y = bbox[2] * (1. / 480)
+            h = bbox[3] * (1. / 480)
+            text = str(class_id) + ' ' + str(x) + ' ' + str(y) + ' ' + str(w) + ' ' + str(h)
+            image_name = "-".join(image_path.split('/'))
+            if p['image_id'] not in image_ids_list_p:
+                image_ids_list_c.add(p['image_id'])
+                shutil.copyfile(root + image_path, dest + 'images/' + image_name)
+                with open('J:/ATOS/datasetv3.0/labels/' + str(image_name.split('.')[0]) + '.txt','w') as file:
+                    file.write(text)
+
+            elif p['image_id'] in image_ids_list_p:
+                # shutil.copyfile(root + image_path, dest + 'patient/Images/' + image_name)
+                with open('J:/ATOS/datasetv3.0/labels/' + str(image_name.split('.')[0]) + '.txt',
+                          'a') as file:
+                    file.write('\n')
+                    file.write(text)
+
+    print('Completed successfully!')
+
 def split_dataset(directory, train_ratio=0.80, test_ratio=0.10, val_ratio=0.10):
     """
 
@@ -265,6 +342,41 @@ def select_number_of_images(directory, destination, number=0):
     for files in tqdm(labels[:number]):
         shutil.copyfile(directory+'/Annotations/'+files, destination+'/Annotations/'+files)
 
+def split_dataset_via_annotations(dir):
+    files = os.listdir(dir+'/labels')
+    counter=0
+
+    os.mkdir('J:/ATOS/datasetv3.1/labels/')
+    os.mkdir('J:/ATOS/datasetv3.1/images/')
+    for file in tqdm(files):
+        with open(dir+'/labels/'+str(file)) as label_file:
+            label_list = label_file.readlines()
+            for idx in label_list:
+                if idx.split(' ')[0] == '1':
+                    counter+=1
+                    shutil.copyfile(dir+'/labels/'+str(file), 'J:/ATOS/datasetv3.1/labels/'+str(file))
+                    shutil.copyfile(dir+'/images/' + str(file.split('.')[0]+'.png'), 'J:/ATOS/datasetv3.1/images/' + str(file.split('.')[0]+'.png'))
+    return str(counter)
+def visualize_patient_yolo_annoatations(folder):
+    images = os.listdir(folder+'/images')
+    labels = os.listdir(folder+'/labels')
+
+    for idx in range(0, len(images)):
+        image = cv2.imread(str(folder+'/images/'+images[idx]))
+        with open(folder+'/labels/'+labels[idx]) as label:
+            lines = [x.rstrip('\n') for x in label.readlines()]
+            for line in lines:
+                bbox = line.split(' ')[1:]
+                x = float(bbox[0]) * 480
+                y = float(bbox[1]) * 480
+                w = float(bbox[2]) * 640
+                h = float(bbox[3]) * 640
+                print(f"X: {int(x)}, Y: {int(y)}, W: {int(w)}, H: {int(h)}")
+                print(f"Image Validation: {len(image)}, {type(image)}")
+                cv2.rectangle(image, (int(x), int(y)), (int(x+w), int(y+h)), (255, 0, 255), 2)
+            cv2.imshow('Image with bounding box', image)
+            cv2.waitKey(5000)
+
 if __name__ == '__main__':
     # patient_file = images_with_patients('./MVOR/annotations/camma_mvor_2018.json', 'J:/ATOS/MVOR_Patients/')
     # visualize_patient_bbox(patient_file, 'J:/ATOS/MVOR_Patients/bbox_vis/')
@@ -275,9 +387,14 @@ if __name__ == '__main__':
     # Selecting only 774 images from clinician
     # select_number_of_images('J:/ATOS/MVOR_Images_YoloAnnotations/Dataset/clinician', 'J:/ATOS/MVOR_Images_YoloAnnotations/Dataset/clinician774', 774)
 
+    # Create Annotations for all images of Patient and Clinician
+    # create_annotation_files_updated('./MVOR/annotations/camma_mvor_2018.json')
+
+    # split_dataset_via_annotations('J:/ATOS/datasetv2.0')
+    visualize_patient_yolo_annoatations('J:/ATOS/datasetv3.1')
 
     # directory should contain Images and Annotations folder in same directory
-    split_dataset('J:/ATOS/MVOR_Images_YoloAnnotations/Dataset/clinician774/', 0.80, 0.10, 0.10)
-    split_dataset('J:/ATOS/MVOR_Images_YoloAnnotations/Dataset/patient/', 0.80, 0.10, 0.10)
+    # split_dataset('J:/ATOS/MVOR_Images_YoloAnnotations/Dataset/clinician774/', 0.80, 0.10, 0.10)
+    # split_dataset('J:/ATOS/MVOR_Images_YoloAnnotations/Dataset/patient/', 0.80, 0.10, 0.10)
 
 
